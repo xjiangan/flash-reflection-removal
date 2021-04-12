@@ -5,3 +5,4 @@ result/*
 *.log
 ckpt/*
 VGG_Model/*
+*.pyc
