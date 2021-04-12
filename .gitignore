@@ -1,3 +1,7 @@
 data/real_world/*
 data/synthetic/*
 *.zip
+result/*
+*.log
+ckpt/*
+VGG_Model/*
