@@ -79,13 +79,13 @@ lossDict= {}
 with tf.variable_scope(tf.get_variable_scope()):
     input_ambient=tf.placeholder(tf.float32,shape=[None,None,None,3])
     input_pureflash=tf.placeholder(tf.float32,shape=[None,None,None,3])
-    input_flash=tf.placeholder(tf.float32,shape=[None,None,None,3])
+    # input_flash=tf.placeholder(tf.float32,shape=[None,None,None,3])
     reflection=tf.placeholder(tf.float32,shape=[None,None,None,3])
     target=tf.placeholder(tf.float32,shape=[None,None,None,3])
 
-    mask_shadow = tf.cast(tf.greater(input_pureflash, 0.02), tf.float32)
-    mask_highlight = tf.cast(tf.less(input_flash, 0.96), tf.float32)
-    mask_shadow_highlight = mask_shadow * mask_highlight
+    # mask_shadow = tf.cast(tf.greater(input_pureflash, 0.02), tf.float32)
+    # mask_highlight = tf.cast(tf.less(input_flash, 0.96), tf.float32)
+    # mask_shadow_highlight = mask_shadow * mask_highlight
 
 
     gray_pureflash = 0.33 * (input_pureflash[...,0:1] + input_pureflash[...,1:2] + input_pureflash[...,2:3])
@@ -120,6 +120,8 @@ saver = tf.train.Saver(max_to_keep=20)
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.Session(config=config)
+# writer = tf.summary.FileWriter("./result/"+model)
+# writer.add_graph(sess.graph)
 sess.run(tf.global_variables_initializer())
 var_restore = [v for v in tf.trainable_variables()]
 saver_restore = tf.train.Saver(var_restore)
@@ -161,7 +163,7 @@ def validation():
 
         fetch_list=[transmission_layer, reflection_layer, input_ambient, target, reflection, lossDict]
         pred_image_t, pred_image_r, gt_input_ambient, gt_target, gt_reflection, crtDict=sess.run(fetch_list,
-            feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash, input_flash: tmp_flash})
+            feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash})
         print("Epc: %3d, shape of outputs: "%epoch, pred_image_t.shape, pred_image_r.shape)
         tmp_psnr = calculate_psnr(pred_image_t[0], tmp_T[0])
         psnr.append(tmp_psnr)
@@ -204,8 +206,26 @@ for epoch in range(1,maxepoch):
 
         fetch_list=[opt, transmission_layer, reflection_layer, input_ambient, target, reflection, lossDict]
 
+        # run_metadata = tf.RunMetadata()
+
         _, pred_image_t, pred_image_r, gt_input_ambient, gt_target, gt_reflection, crtDict=sess.run(fetch_list,
-            feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash, input_flash: tmp_flash})
+            feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash})
+
+
+
+            # options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+            #    run_metadata=run_metadata)
+        
+        # ProfileOptionBuilder = tf.profiler.ProfileOptionBuilder
+        # opts = ProfileOptionBuilder(ProfileOptionBuilder.time_and_memory()
+        #     ).with_node_names(show_name_regexes=['.*train.py.*','.*network.py.*']).build()
+
+        # tf.profiler.profile(
+        #     tf.get_default_graph(),
+        #     run_meta=run_metadata,
+        #     cmd='code',
+        #     options=opts)
+
         step += 1
         if step % 10 == 0:
             crtLoss_str = "   ".join(["{}: {:.3f}".format(key, value) for key, value in crtDict.items()])
@@ -230,7 +250,7 @@ for epoch in range(1,maxepoch):
             tmp_pureflash, tmp_ambient, tmp_flash, tmp_T, tmp_R = load_paired_data(img_names, id)
             fetch_list=[transmission_layer, reflection_layer, input_ambient, target, reflection, lossDict]
             pred_image_t, pred_image_r, gt_input_ambient, gt_target, gt_reflection, crtDict=sess.run(fetch_list,
-                feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash, input_flash: tmp_flash})
+                feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash})
             print("Epc: %3d, shape of outputs: "%epoch, pred_image_t.shape, pred_image_r.shape)
             utils.save_concat_img(gt_input_ambient, gt_target, gt_reflection, tmp_pureflash, pred_image_t,pred_image_r, "./result/%s/%04d/val_real_%06d.jpg"%(model, epoch, id))
 
@@ -243,6 +263,6 @@ for epoch in range(1,maxepoch):
             tmp_T, tmp_R, tmp_ambient, tmp_pureflash, tmp_flash = tmp_T[:,:h:2,:w:2,:], tmp_R[:,:h:2,:w:2,:], tmp_ambient[:,:h:2,:w:2,:], tmp_pureflash[:,:h:2,:w:2,:], tmp_flash[:,:h:2,:w:2,:]
             fetch_list=[transmission_layer, reflection_layer, input_ambient, target, reflection, lossDict]
             pred_image_t, pred_image_r, gt_input_ambient, gt_target, gt_reflection, crtDict=sess.run(fetch_list,
-                feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash, input_flash: tmp_flash})
+                feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash})
             print("Epc: %3d, shape of outputs: "%epoch, pred_image_t.shape, pred_image_r.shape)
             utils.save_concat_img(gt_input_ambient, gt_target, gt_reflection, tmp_pureflash, pred_image_t,pred_image_r, "./result/%s/%04d/val_fake_%06d.jpg"%(model, epoch, id))
