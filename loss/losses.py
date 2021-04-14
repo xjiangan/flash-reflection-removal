@@ -51,9 +51,9 @@ vgg_path=scipy.io.loadmat('./VGG_Model/imagenet-vgg-verydeep-19.mat')
 print("[i] Loaded pre-trained vgg19 parameters")
 # build VGG19 to load pre-trained parameters
 def build_vgg19(input,reuse=False):
-    with tf.variable_scope("vgg19"):
-        if reuse:
-            tf.get_variable_scope().reuse_variables()
+    with tf.variable_scope("vgg19",reuse=reuse):
+        # if reuse:
+        #     tf.get_variable_scope().reuse_variables()
         net={}
         vgg_layers=vgg_path['layers'][0]
         net['input']=input-np.array([123.6800, 116.7790, 103.9390]).reshape((1,1,1,3))

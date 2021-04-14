@@ -199,7 +199,7 @@ def UNet_SE(input, channel=32, output_channel=3,reuse=False,ext=""):
 
     conv5=slim.conv2d(conv5, channel*16,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv5_3')
     global_pooling = tf.reduce_mean(conv5, axis=[0,1,2], keep_dims=True)
-    se = slim.fully_connected(global_pooling, channel, activation_fn=tf.nn.relu, scope = ext+'g_fc1')
+    # se = slim.fully_connected(global_pooling, channel, activation_fn=tf.nn.relu, scope = ext+'g_fc1')
     ex = slim.fully_connected(global_pooling, channel * 16, activation_fn=tf.nn.relu, scope = ext+'g_fc2')
     attention_channel = tf.nn.sigmoid(ex)
     conv5 = conv5 * attention_channel
