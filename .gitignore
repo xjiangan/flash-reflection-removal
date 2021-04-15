@@ -6,3 +6,5 @@ ckpt/*
 VGG_Model/*
 *.pyc
 .vscode/*
+*.jpg
+*.png
