@@ -1,3 +1,4 @@
+from __future__ import division
 from glob import glob
 
 import tensorflow as tf
@@ -41,8 +42,8 @@ iterator=train_ds.take(n).make_one_shot_iterator()
 next_imgs=iterator.get_next()
 with tf.Session() as sess:
     for _ in range(n):
-        imgs=session.run(next_imgs)
+        imgs=sess.run(next_imgs)
         i+=1
         for j, cls in enumerate(class_names):
-            save_img("%s/%04d_%s.jpg"%(output_dir,i,cls),imgs[j])
+            sess.run(save_img("%s/%04d_%s.jpg"%(output_dir,i,cls),imgs[j]))
 

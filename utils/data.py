@@ -1,12 +1,14 @@
 import tensorflow as tf
 
 def load_img(image_path,channels=0):
-  return tf.image.decode_jpeg(
-      tf.io.read_file(image_path),channels=channels)/255
+  return tf.image.convert_image_dtype(
+      tf.image.decode_jpeg(
+      tf.io.read_file(image_path),channels=channels),dtype=tf.float32)
 
 def save_img(image_path,image):
-    tf.io.write_file(image_path,
-                tf.io.encode_jpeg(tf.cast(image,tf.uint8)))
+    return tf.io.write_file(image_path,
+                tf.io.encode_jpeg(
+                    tf.image.convert_image_dtype(image,tf.uint8)))
 
 def darken(x,xmin=0,  xmax=0.25,  ymin=0.1,  ymax=0.9,
   mu=0.05,  sig=0.025,  smax=1):
