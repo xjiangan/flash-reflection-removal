@@ -50,6 +50,10 @@ You can download the ckpt and VGG model by
 ```
 bash download.sh
 ```
+### Download data related to shadow removal
+```
+bash download_shadow.sh
+```
 
 ## Quick inference 
 You can get the results for the demo data by:
