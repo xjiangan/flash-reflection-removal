@@ -1,20 +1,25 @@
 from __future__ import division
-import os,time,cv2,scipy.io
-import tensorflow as tf
-import tensorflow.contrib.slim as slim
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.stats as st
+import os
+import time
+import math
 import argparse
 import subprocess
+import random
+from glob import glob
+
+import tensorflow as tf
+import tensorflow.contrib.slim as slim
+import cv2
+import numpy as np
+import scipy.io
+import scipy.stats as st
 from scipy.misc import imread,imsave
+import matplotlib.pyplot as plt
+
 import utils.utils as utils
 from model.network import UNet as UNet
 from model.network import UNet_SE as UNet_SE
-import math
-from glob import glob
-from loss.losses import *
-import random
+from loss.losses import compute_percep_loss
 
 seed = 2020#2019
 np.random.seed(seed)
