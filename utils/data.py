@@ -1,9 +1,57 @@
+import os.path as osp
+import os
+
 import tensorflow as tf
 import numpy as np
+import pandas as pd
 
-def encode_img(img):
+
+def gen_istd(img_dir,mask_dir,list_name,output_dir,out_prefix,scale=5):
+    mask_list=pd.read_csv(osp.join(mask_dir,list_name))["mask"].map(
+        lambda x:osp.join(mask_dir,x)).tolist()
+    img_list=pd.read_csv(osp.join(img_dir,list_name))["ambient"].map(
+        lambda x:osp.join(img_dir,x)).tolist()
+
+    mask_list=tf.constant(mask_list)
+    n=len(img_list)
+    img_list=np.array(img_list)
+
+    ds=tf.data.Dataset.from_tensor_slices(img_list)
+    ds=ds.map(lambda x:gen_shadow2(x,mask_list),num_parallel_calls=4).prefetch(4)
+    classes=["_A","_B","_C"]
+    for cls in classes:
+        p=osp.join(output_dir,out_prefix+cls)
+        if not osp.exists(p):
+            os.makedirs(p)
+
+    for j in range(scale):
+        iterator=ds.make_one_shot_iterator()
+        next_imgs=iterator.get_next()
+        with tf.Session() as sess:
+            for i in range(n):
+                imgs=sess.run(next_imgs)
+                for k, cls in enumerate(classes):
+                    with open(osp.join(output_dir,out_prefix+cls,"%04d-%01d.png"%(i,j)),'wb') as f:
+                        f.write(imgs[k])
+
+def write_split_list(list,sections,out_dir,out_names,columns):
+    list=np.random.permutation(list)
+    sub_lists=np.split(list, sections)
+    for sub_list,out_name in zip(sub_lists,out_names):
+        print("%s size: %d"%(out_name,len(sub_list)))
+        df=pd.DataFrame(sub_list,columns=columns)
+        df.to_csv(osp.join(out_dir,out_name),index=False)
+
+
+
+def encode_jpeg(img):
     return tf.io.encode_jpeg(
                 tf.image.convert_image_dtype(
+                    img,tf.uint8,saturate=True))
+
+def encode_png(img):
+    return tf.image.encode_png(
+                    tf.image.convert_image_dtype(
                     img,tf.uint8,saturate=True))
 
 def concat_img(imgs,col=3):
@@ -75,7 +123,9 @@ def load_img(image_path,channels=0):
 
 def save_img(image_path,image):
     return tf.io.write_file(image_path,
-                encode_img(image))
+                encode_jpeg(image))
+
+
 
 def darken(x,xmin=0,  xmax=0.25,  ymin=0.1,  ymax=0.9,
   mu=0.05,  sig=0.025,  smax=1):
@@ -93,10 +143,26 @@ def darken(x,xmin=0,  xmax=0.25,  ymin=0.1,  ymax=0.9,
   y = tf.clip_by_value(y, 0.0, 1.0)
   return y
 
+def load_imgs(img_paths,num=4):
+    return [tf.image.resize(load_img(img_paths[i],channels=3),(1024,1024)) for i in range(num) ]
+def load_four(img_paths):
+    return tf.unstack(
+        tf.image.resize(tf.image.random_crop(
+        tf.stack([load_img(img_paths[i])for i in range(4)]),(4,1280,1280,3)),(640,640)))
+
+def load_raw(image_path,channels=4,dtype=tf.dtypes.uint16,maximum=1024):
+      return tf.cast(tf.image.decode_png(
+      tf.io.read_file(image_path),channels=channels,dtype=dtype),dtype=tf.float32)/maximum
+      
+
+def load_four_raw(img_paths):
+    return tf.unstack(
+        tf.image.resize(tf.image.random_crop(
+        tf.stack([load_raw(img_paths[i])for i in range(4)]),(4,1280,1280,4)),(640,640)))
 
 def gen_shadow(img_paths,mask_file_list):
   mask_index=tf.random.uniform(shape=[], minval=0, maxval=tf.shape(mask_file_list)[0], dtype=tf.int32)
-  mask=load_img(mask_file_list[mask_index],channels=3)
+  mask=load_img(mask_file_list[mask_index],channels=1)
   noshad=load_img(img_paths[0],channels=3)
   flash=load_img(img_paths[1],channels=3)
   noshad,flash=tf.unstack(
@@ -106,3 +172,12 @@ def gen_shadow(img_paths,mask_file_list):
   shadow=mask*dark+(1-mask)*noshad
   return shadow,mask,noshad,flash
 
+def gen_shadow2(img_paths,mask_file_list):
+    mask_index=tf.random.uniform(shape=[], minval=0, maxval=tf.shape(mask_file_list)[0], dtype=tf.int32)
+    mask=load_img(mask_file_list[mask_index],channels=1)
+    noshad=load_img(img_paths,channels=3)
+    noshad=tf.image.resize(tf.image.random_crop(noshad,(960,960,3)),(640,640))
+    dark=darken(noshad)
+    shadow=mask*dark+(1-mask)*noshad
+    mask=tf.cast(tf.cast(mask+0.5,tf.uint8),tf.float32)
+    return encode_png(shadow),encode_png(mask),encode_png(noshad)

@@ -1,4 +1,4 @@
-name: flashrr-rfc
+name: fr2
 dependencies:
   - python=2.7
   - tensorflow-gpu=1.13
