@@ -134,7 +134,7 @@ def prepare_exifdict(raw_path):
     exif_dict["EXIF:ColorMatrix2"] = exif_dict["Image Tag 0xC622"]
     exif_dict["EXIF:CameraCalibration1"] = exif_dict["Image Tag 0xC623"]
     exif_dict["EXIF:CameraCalibration2"] = exif_dict["Image Tag 0xC624"]
-    exif_dict["EXIF:ForwardMatrix1"] = exif_dict["Image Tag 0xC714"]
+    exif_dict["EXIF:ForwardMatrix1"] = exif_dict["Image Tag 0xC714"] 
     exif_dict["EXIF:ForwardMatrix2"] = exif_dict["Image Tag 0xC715"]
     exif_dict["EXIF:AsShotNeutral"] = exif_dict["Image Tag 0xC628"]
     exif_dict["EXIF:AnalogBalance"] = exif_dict["EXIF:AsShotNeutral"]

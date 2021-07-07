@@ -13,7 +13,7 @@ import pandas as pd
 
 import utils.utils as utils
 from utils.data import load_img, save_img, darken, gen_shadow,detect_shadow,batch_crop
-from utils.data import concat_img, encode_jpeg,load_four,load_four_raw
+from utils.data import concat_img, encode_jpeg,load_four,load_four_raw,linref2srgb,rgbg2rgb
 from model.network import UNet as UNet
 from model.network import UNet_SE as UNet_SE
 from loss.losses import compute_percep_loss
@@ -47,6 +47,7 @@ else:
     os.environ["CUDA_VISIBLE_DEVICES"]=''
 
 os.environ["OMP_NUM_THREADS"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 print(ARGS)
 
 
@@ -91,7 +92,7 @@ val_ds=val_ds.shuffle(val_size,reshuffle_each_iteration=False)
 
 train_ds=train_ds.map(lambda x:load_four_raw(x),
             num_parallel_calls=4).repeat(57).batch(BATCH_SIZE).prefetch(BATCH_SIZE)
-val_ds=val_ds.map(lambda x:load_four_raw(x)).repeat(57).batch(2*BATCH_SIZE)
+val_ds=val_ds.map(lambda x:load_four_raw(x)).repeat(57).batch(1)
 
 print(train_ds)
 print(len(train_arr))
@@ -107,21 +108,21 @@ validation_init_op = iterator.make_initializer(val_ds)
 
 with tf.variable_scope(tf.get_variable_scope()):
 
-    gray_pureflash = 0.25 * (input_pureflash[...,0:1] + input_pureflash[...,1:2] + input_pureflash[...,2:3]+input_pureflash[...,3:4])
+    # gray_pureflash = 0.25 * (input_pureflash[...,0:1] + input_pureflash[...,1:2] + input_pureflash[...,2:3]+input_pureflash[...,3:4])
     # bad_mask = detect_shadow(img_with_shadow, input_pureflash)
-    shadow_mask_layer = UNet_SE(tf.concat([img_with_shadow, gray_pureflash], axis=3), output_channel = 4, ext='Ref_')
+    shadow_mask_layer = UNet_SE(tf.concat([img_with_shadow], axis=3), output_channel = 4, ext='Ref_')
                         # tf.math.sigmoid()
-    no_shadow_layer = UNet_SE(tf.concat([img_with_shadow, shadow_mask_layer], axis=3,output_channel = 4), ext='Trans_')
-    lossDict["percep_t"] = 0.1 * compute_percep_loss(img_no_shadow, no_shadow_layer, reuse=False)    
-    # lossDict["percep_r"]=0.1* tf.reduce_mean(tf.square(shadow_mask-shadow_mask_layer))
-    lossDict["percep_r"] = 0.1 * compute_percep_loss(shadow_mask, shadow_mask_layer, reuse=True) 
+    no_shadow_layer = UNet_SE(tf.concat([img_with_shadow, shadow_mask_layer], axis=3),output_channel = 4, ext='Trans_')
+    # lossDict["percep_t"] = 0.1 * compute_percep_loss(img_no_shadow, no_shadow_layer, reuse=False)    
+    lossDict["percep_t"]=0.1* tf.reduce_mean(tf.abs(img_no_shadow- no_shadow_layer))
+    # lossDict["percep_r"] = 0.1 * compute_percep_loss(shadow_mask, shadow_mask_layer, reuse=True) 
+    lossDict["percep_r"]=0.1* tf.reduce_mean(tf.abs(shadow_mask-shadow_mask_layer))
     lossDict["total"] = lossDict["percep_t"] + lossDict["percep_r"]
     tf_psnr=tf.math.reduce_mean(tf.image.psnr(tf.clip_by_value(img_no_shadow,0,1),
                         tf.clip_by_value(no_shadow_layer,0,1),1.0))
     encoded_concat=encode_jpeg(
-        concat_img((img_with_shadow[0],no_shadow_layer[0],img_no_shadow[0],
-            input_pureflash[0],shadow_mask_layer[0],
-            shadow_mask[0])))
+        concat_img((linref2srgb(img_with_shadow[0]),linref2srgb(no_shadow_layer[0]),linref2srgb(img_no_shadow[0]),
+            linref2srgb(input_pureflash[0]),rgbg2rgb(shadow_mask_layer[0]), rgbg2rgb(shadow_mask[0]))))
 
 
 
@@ -165,7 +166,7 @@ if ckpt and continue_training:
 
 maxepoch=151
 step = 0
-val_save_freq=10
+val_save_freq=30
 train_save_freq=100
 
 best_psnr = 0
