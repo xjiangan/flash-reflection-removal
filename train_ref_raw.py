@@ -60,15 +60,15 @@ print(ARGS)
 # set up the model and define the graph
 lossDict= {}
 
-data_root="data/docshadow"
-train_dirs=["calculus","exam","bio","scratch"]
-val_dirs=["bio2"]
+data_root="data/rawfr"
+train_dirs=['huawei_20200918', 'huawei_20200910', 'huawei_20200909', 'huawei_20200917']
+val_dirs=['huawei_20200826']
 train_dfs=[]
 for subdir in train_dirs:
     df=pd.read_csv(osp.join(data_root,subdir,'trip.csv'))
     df["f"]=df["f"].map(lambda x: osp.join('rawc','derived',x))
     df["m"]=df["ab"].map(lambda x:osp.join('rawc','derived',x))
-    df[["gt","ab"]]=df[["gt","ab"]].applymap(lambda x: osp.join('rawc','origin',x))
+    df[["ref","ab"]]=df[["ref","ab"]].applymap(lambda x: osp.join('rawc','origin',x))
     df=df.applymap(lambda x:osp.join(data_root,subdir,x+'.png'))
     train_dfs.append(df)
 train_df=pd.concat(train_dfs)
@@ -78,7 +78,7 @@ for subdir in val_dirs:
     df=pd.read_csv(osp.join(data_root,subdir,'trip.csv'))
     df["f"]=df["f"].map(lambda x: osp.join('rawc','derived',x))
     df["m"]=df["ab"].map(lambda x:osp.join('rawc','derived',x))
-    df[["gt","ab"]]=df[["gt","ab"]].applymap(lambda x: osp.join('rawc','origin',x))
+    df[["ref","ab"]]=df[["ref","ab"]].applymap(lambda x: osp.join('rawc','origin',x))
     df=df.applymap(lambda x:osp.join(data_root,subdir,x+'.png'))
     val_dfs.append(df)
 val_df=pd.concat(val_dfs)
@@ -95,9 +95,9 @@ val_size=len(val_arr)
 val_ds=tf.data.Dataset.from_tensor_slices(val_arr)
 val_ds=val_ds.shuffle(val_size,reshuffle_each_iteration=False)
 
-train_ds=train_ds.map(lambda x:load_raw_test(x),
+train_ds=train_ds.map(lambda x:load_four_raw(x),
             num_parallel_calls=4).repeat(57).batch(BATCH_SIZE).prefetch(BATCH_SIZE)
-val_ds=val_ds.map(lambda x:load_raw_test(x)).batch(1)
+val_ds=val_ds.map(lambda x:load_four_raw(x)).batch(1)
 
 print(train_ds)
 print(len(train_arr))
@@ -106,7 +106,7 @@ print(len(val_arr))
 
 iterator = tf.data.Iterator.from_structure(train_ds.output_types,
                                            train_ds.output_shapes)
-img_no_shadow,img_with_shadow,input_pureflash,shadow_mask = iterator.get_next()
+ref_gt,img_with_shadow,input_pureflash,tran_gt = iterator.get_next()
 
 training_init_op = iterator.make_initializer(train_ds)
 validation_init_op = iterator.make_initializer(val_ds)
@@ -118,25 +118,25 @@ with tf.variable_scope(tf.get_variable_scope()):
 
     
     if NOFLASH:
-        shadow_mask_layer = UNet_SE(tf.concat([img_with_shadow], axis=3), output_channel = 4, ext='Ref_')
+        reflection_layer = UNet_SE(tf.concat([img_with_shadow], axis=3), output_channel = 4, ext='Ref_')
     else:
-        shadow_mask_layer = UNet_SE(tf.concat([img_with_shadow, gray_pureflash], axis=3), output_channel = 4, ext='Ref_')
+        reflection_layer = UNet_SE(tf.concat([img_with_shadow, gray_pureflash], axis=3), output_channel = 4, ext='Ref_')
 
-    no_shadow_layer = UNet_SE(tf.concat([img_with_shadow, shadow_mask_layer], axis=3),output_channel = 4, ext='Trans_')
-    # lossDict["percep_t"] = 0.1 * compute_percep_loss(img_no_shadow, no_shadow_layer, reuse=False)    
-    lossDict["percep_t"]=0.1* tf.reduce_mean(tf.abs(img_no_shadow- no_shadow_layer))
-    # lossDict["percep_r"] = 0.1 * compute_percep_loss(shadow_mask, shadow_mask_layer, reuse=True) 
-    lossDict["percep_r"]=0.1* tf.reduce_mean(tf.abs(shadow_mask-shadow_mask_layer))
+    tran_layer = UNet_SE(tf.concat([img_with_shadow, reflection_layer], axis=3),output_channel = 4, ext='Trans_')
+    # lossDict["percep_t"] = 0.1 * compute_percep_loss(ref_gt, tran_layer, reuse=False)    
+    lossDict["percep_t"]=0.1* tf.reduce_mean(tf.abs(tran_gt- tran_layer))
+    # lossDict["percep_r"] = 0.1 * compute_percep_loss(tran_gt, reflection_layer, reuse=True) 
+    lossDict["percep_r"]=0.1* tf.reduce_mean(tf.abs(ref_gt-reflection_layer))
     lossDict["total"] = lossDict["percep_t"] + lossDict["percep_r"]
     if RGB_PSNR:
-        tf_psnr=tf.math.reduce_mean(tf.image.psnr(tf.clip_by_value(linref2srgb(img_no_shadow[0]),0,1),
-                        tf.clip_by_value(linref2srgb(no_shadow_layer[0]),0,1),1.0))
+        tf_psnr=tf.math.reduce_mean(tf.image.psnr(tf.clip_by_value(linref2srgb(ref_gt[0]),0,1),
+                        tf.clip_by_value(linref2srgb(tran_layer[0]),0,1),1.0))
     else:
-        tf_psnr=tf.math.reduce_mean(tf.image.psnr(tf.clip_by_value(img_no_shadow,0,1),
-                        tf.clip_by_value(no_shadow_layer,0,1),1.0))
+        tf_psnr=tf.math.reduce_mean(tf.image.psnr(tf.clip_by_value(ref_gt,0,1),
+                        tf.clip_by_value(tran_layer,0,1),1.0))
     encoded_concat=encode_jpeg(
-        concat_img((linref2srgb(img_with_shadow[0]),linref2srgb(no_shadow_layer[0]),linref2srgb(img_no_shadow[0]),
-            linref2srgb(input_pureflash[0]),rgbg2rgb(shadow_mask_layer[0]), rgbg2rgb(shadow_mask[0]))))
+        concat_img((linref2srgb(img_with_shadow[0]),linref2srgb(tran_layer[0]),linref2srgb(tran_gt[0]),
+            linref2srgb(input_pureflash[0]),linref2srgb(reflection_layer[0]), linref2srgb(ref_gt[0]))))
 
 
 
@@ -145,7 +145,7 @@ train_vars = tf.trainable_variables()
 R_vars = [var for var in train_vars if 'Ref_' in var.name]
 T_vars = [var for var in train_vars if 'Trans_' in var.name]
 all_vars=[var for var in train_vars if 'g_' in var.name]
-
+tran_layer
 # for var in R_vars: 	print(var)
 # for var in T_vars:	print(var)
 opt=tf.train.AdamOptimizer(learning_rate=0.0001).minimize(lossDict["total"],var_list=all_vars)
@@ -180,7 +180,7 @@ if ckpt and continue_training:
 
 maxepoch=151
 step = 0
-val_save_freq=10
+val_save_freq=1
 train_save_freq=100
 
 best_psnr = 0

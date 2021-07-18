@@ -54,29 +54,7 @@ def encode_png(img):
                     tf.image.convert_image_dtype(
                     img,tf.uint8,saturate=True))
 
-def rgbg2rgb(rgbg):
-    return tf.stack((rgbg[...,0],(rgbg[...,1]+rgbg[...,3])/2,rgbg[...,2]),axis=2)
 
-def linref2srgb(linref):
-    forward_matrix=tf.constant([[ 0.51215854,0.26953794,0.17924102],
-                                        [ 0.10933821,0.85002241,0.04063938],
-                                        [ 0.01164852 ,-0.43424423,1.24290822]])
-    neutral_wb=tf.constant([0.59085778, 1. ,0.44278711])
-    d50tosrgb=tf.constant([[3.1338561, -1.6168667, -0.4906146], 
-                                    [-0.9787684, 1.9161415, 0.0334540], 
-                                     [0.0719453, -0.2289914, 1.4052427]])
-    linref=rgbg2rgb(linref)
-    shape = tf.shape(linref)[0:2]
-    height=shape[0]
-    width=shape[1]
-    linref = tf.math.minimum(linref,tf.reshape(neutral_wb,(1,1,3)))
-    rgb_reshaped = tf.reshape(linref,(-1,3))
-    camera2d50 = forward_matrix / tf.reshape(neutral_wb,(1,3))
-    camera2srgb = tf.linalg.matmul(d50tosrgb,camera2d50)
-    rgb_srgb = tf.linalg.matmul(rgb_reshaped, camera2srgb,transpose_b=True)
-    orgshape_rgb_srgb = tf.reshape(rgb_srgb,(height, width,3))
-    srgb =tf.pow(tf.clip_by_value(orgshape_rgb_srgb,0, 1),1/2.2)
-    return srgb
 
 def concat_img(imgs,col=3):
     batch=tf.stack(imgs)[:,::2,::2,:]
@@ -174,15 +152,7 @@ def load_four(img_paths):
         tf.image.resize(tf.image.random_crop(
         tf.stack([load_img(img_paths[i])for i in range(4)]),(4,1280,1280,3)),(640,640)))
 
-def load_raw(image_path,channels=4,dtype=tf.dtypes.uint16,maximum=1024):
-      return tf.cast(tf.image.decode_png(
-      tf.io.read_file(image_path),channels=channels,dtype=dtype),dtype=tf.float32)/maximum
-      
 
-def load_four_raw(img_paths):
-    return tf.unstack(
-        tf.image.resize(tf.image.random_crop(
-        tf.stack([load_raw(img_paths[i])for i in range(4)]),(4,1280,1280,4)),(640,640)))
 
 def gen_shadow(img_paths,mask_file_list):
   mask_index=tf.random.uniform(shape=[], minval=0, maxval=tf.shape(mask_file_list)[0], dtype=tf.int32)

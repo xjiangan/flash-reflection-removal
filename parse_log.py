@@ -41,4 +41,4 @@ def histsix(folder):
         im=im[:h//2,w//3:,:]
         print(np.histogram(im))
 
-histsix("result/raw2raw/0001")
+parse_log()

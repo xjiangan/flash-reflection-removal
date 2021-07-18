@@ -9,7 +9,7 @@ import scipy.misc as sic
 import subprocess
 import numpy as np
 from matplotlib.colors import hsv_to_rgb
-from skimage.measure import compare_ssim, compare_psnr
+# from skimage.measure import compare_ssim, compare_psnr
 from glob import glob
 
 
@@ -169,12 +169,12 @@ def prepare_FNF(item):
 
     return pf[np.newaxis, :h, :w, :], gt_t[np.newaxis, :h, :w, :],gt_r[np.newaxis, :h, :w, :],nf[np.newaxis, :h, :w, :]
 
-def get_metrics(metrics,out_mask, gt_target,gt_reflection,pred_image_t,pred_image_r):
-    metrics["T_ssim"] += compare_ssim(0.5*gt_target[0,:,:,4]*out_mask[0,:,:,0], 0.5*pred_image_t[0,:,:,4]*out_mask[0,:,:,0])
-    metrics["T_psnr"] += compare_psnr(0.5*gt_target[0,:,:,4]*out_mask[0,:,:,0], 0.5*pred_image_t[0,:,:,4]*out_mask[0,:,:,0], 1)
-    metrics["R_ssim"] += compare_ssim(0.5*gt_reflection[0,:,:,4]*out_mask[0,:,:,0], 0.5*pred_image_r[0,:,:,4]*out_mask[0,:,:,0])
-    metrics["R_psnr"] += compare_psnr(0.5*gt_reflection[0,:,:,4]*out_mask[0,:,:,0], 0.5*pred_image_r[0,:,:,4]*out_mask[0,:,:,0], 1)
-    return metrics
+# def get_metrics(metrics,out_mask, gt_target,gt_reflection,pred_image_t,pred_image_r):
+#     metrics["T_ssim"] += compare_ssim(0.5*gt_target[0,:,:,4]*out_mask[0,:,:,0], 0.5*pred_image_t[0,:,:,4]*out_mask[0,:,:,0])
+#     metrics["T_psnr"] += compare_psnr(0.5*gt_target[0,:,:,4]*out_mask[0,:,:,0], 0.5*pred_image_t[0,:,:,4]*out_mask[0,:,:,0], 1)
+#     metrics["R_ssim"] += compare_ssim(0.5*gt_reflection[0,:,:,4]*out_mask[0,:,:,0], 0.5*pred_image_r[0,:,:,4]*out_mask[0,:,:,0])
+#     metrics["R_psnr"] += compare_psnr(0.5*gt_reflection[0,:,:,4]*out_mask[0,:,:,0], 0.5*pred_image_r[0,:,:,4]*out_mask[0,:,:,0], 1)
+#     return metrics
 
 def save_concat_img(gt_input, gt_target, gt_reflection, pureflash, pred_image_t, pred_image_r, save_path, in_flash=None, is_test=False):
     if is_test == True:

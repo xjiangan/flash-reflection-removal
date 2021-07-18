@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import scipy.stats as st
 import argparse
 import subprocess
-from scipy.misc import imread,imsave
+# from scipy.misc import imread,imsave
 import skimage
 from glob import glob
 

@@ -29,6 +29,8 @@ parser.add_argument("--is_test", default=0,type=int, help="choose the loss type"
 parser.add_argument("--model", default="pre-trained",help="path to folder containing the model")
 parser.add_argument("--debug", default=0, type=int, help="DEBUG or not")
 parser.add_argument("--use_gpu", default=1, type=int, help="DEBUG or not")
+parser.add_argument("--gpu", default=3, type=int, help="DEBUG or not")
+parser.add_argument("--noflash", action='store_true')
 parser.add_argument("--save_model_freq", default=10, type=int, help="frequency to save model")
 
 ARGS = parser.parse_args()
@@ -37,7 +39,8 @@ save_model_freq = ARGS.save_model_freq
 model=ARGS.model
 is_test = ARGS.is_test
 BATCH_SIZE=2
-
+NOFLASH=ARGS.noflash
+print("noflash:" ,NOFLASH)
 
 
 continue_training=True
@@ -45,7 +48,7 @@ if ARGS.use_gpu:
     os.environ["CUDA_VISIBLE_DEVICES"]=str(np.argmax([int(x.split()[2]) for x in subprocess.Popen("nvidia-smi -q -d Memory | grep -A4 GPU | grep Free", shell=True, stdout=subprocess.PIPE).stdout.readlines()]))
 else:
     os.environ["CUDA_VISIBLE_DEVICES"]=''
-
+os.environ["CUDA_VISIBLE_DEVICES"]=str(ARGS.gpu)
 os.environ["OMP_NUM_THREADS"] = '4'
 print(ARGS)
 
@@ -60,9 +63,9 @@ val_dirs=["bio2"]
 train_dfs=[]
 for subdir in train_dirs:
     df=pd.read_csv(osp.join(data_root,subdir,'trip.csv'))
-    df["f"]=df["f"].map(lambda x: osp.join('foc',x))
-    df["m"]=df["ab"].map(lambda x:osp.join('mc',x))
-    df[["gt","ab"]]=df[["gt","ab"]].applymap(lambda x: osp.join('jpgc',x))
+    df["f"]=df["f"].map(lambda x: osp.join('rgbc','derived',x))
+    df["m"]=df["ab"].map(lambda x:osp.join('rgbc','derived',x))
+    df[["gt","ab"]]=df[["gt","ab"]].applymap(lambda x: osp.join('rgbc','origin',x))
     df=df.applymap(lambda x:osp.join(data_root,subdir,x+'.jpg'))
     train_dfs.append(df)
 train_df=pd.concat(train_dfs)
@@ -70,9 +73,9 @@ train_df=pd.concat(train_dfs)
 val_dfs=[]
 for subdir in val_dirs:
     df=pd.read_csv(osp.join(data_root,subdir,'trip.csv'))
-    df["f"]=df["f"].map(lambda x: osp.join('foc',x))
-    df["m"]=df["ab"].map(lambda x:osp.join('mc',x))
-    df[["gt","ab"]]=df[["gt","ab"]].applymap(lambda x: osp.join('jpgc',x))
+    df["f"]=df["f"].map(lambda x: osp.join('rgbc','derived',x))
+    df["m"]=df["ab"].map(lambda x:osp.join('rgbc','derived',x))
+    df[["gt","ab"]]=df[["gt","ab"]].applymap(lambda x: osp.join('rgbc','origin',x))
     df=df.applymap(lambda x:osp.join(data_root,subdir,x+'.jpg'))
     val_dfs.append(df)
 val_df=pd.concat(val_dfs)
@@ -109,11 +112,16 @@ with tf.variable_scope(tf.get_variable_scope()):
 
     gray_pureflash = 0.33 * (input_pureflash[...,0:1] + input_pureflash[...,1:2] + input_pureflash[...,2:3])
     # bad_mask = detect_shadow(img_with_shadow, input_pureflash)
-    shadow_mask_layer = UNet_SE(tf.concat([img_with_shadow, gray_pureflash], axis=3), output_channel = 3, ext='Ref_')
+    if NOFLASH:
+        shadow_mask_layer = UNet_SE(tf.concat([img_with_shadow], axis=3), output_channel = 3, ext='Ref_')
+    else:
+        shadow_mask_layer = UNet_SE(tf.concat([img_with_shadow, gray_pureflash], axis=3), output_channel = 3, ext='Ref_')
+
+    # shadow_mask_layer = UNet_SE(tf.concat([img_with_shadow, gray_pureflash], axis=3), output_channel = 3, ext='Ref_')
                         # tf.math.sigmoid()
     no_shadow_layer = UNet_SE(tf.concat([img_with_shadow, shadow_mask_layer], axis=3), ext='Trans_')
     lossDict["percep_t"] = 0.1 * compute_percep_loss(img_no_shadow, no_shadow_layer, reuse=False)    
-    # lossDict["percep_r"]=0.1* tf.reduce_mean(tf.square(shadow_mask-shadow_mask_layer))
+    # lossDict["percep_r"]=0.1* tf.reduce_mean(tf.abs(shadow_mask-shadow_mask_layer))
     lossDict["percep_r"] = 0.1 * compute_percep_loss(shadow_mask, shadow_mask_layer, reuse=True) 
     lossDict["total"] = lossDict["percep_t"] + lossDict["percep_r"]
     tf_psnr=tf.math.reduce_mean(tf.image.psnr(tf.clip_by_value(img_no_shadow,0,1),
@@ -131,14 +139,14 @@ R_vars = [var for var in train_vars if 'Ref_' in var.name]
 T_vars = [var for var in train_vars if 'Trans_' in var.name]
 all_vars=[var for var in train_vars if 'g_' in var.name]
 
-for var in R_vars: 	print(var)
-for var in T_vars:	print(var)
+# for var in R_vars: 	print(var)
+# for var in T_vars:	print(var)
 opt=tf.train.AdamOptimizer(learning_rate=0.0001).minimize(lossDict["total"],var_list=all_vars)
 
 
-for var in tf.trainable_variables():
-    print("Listing trainable variables ... ")
-    print(var)
+# for var in tf.trainable_variables():
+#     print("Listing trainable variables ... ")
+#     print(var)
 
 
 
