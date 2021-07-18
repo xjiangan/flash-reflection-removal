@@ -1,4 +1,10 @@
-data/*
+data/**/*.png
+data/**/*.jpg
+data/**/*.dng
+data/**/*.txt
+data/**/*.NEF
+data/**/*.csv
+data/**/*.md
 *.zip
 result/*
 *.log

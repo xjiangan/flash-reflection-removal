@@ -37,12 +37,12 @@ def load_raw(image_path,channels=4,dtype=tf.dtypes.uint16,maximum=65535):
       
 
 
-def crop_big(img,crop_size=640):
+def crop_big(img,crop_size=576):
     n,h,w,c=tf.unstack(tf.shape(img))
     maximum=tf.maximum(h,w)
     minimum=tf.minimum(h,w)
-    h2=h*20 // minimum *32
-    w2=w*20 // minimum *32
+    h2=h*22 // minimum *32
+    w2=w*22 // minimum *32
     cropped=tf.cond(maximum >crop_size,
                     lambda :tf.image.random_crop(
                             tf.image.resize(img,(h2,w2)),
